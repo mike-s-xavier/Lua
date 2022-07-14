@@ -1,0 +1,60 @@
+-- This makes a GUI jiggle effect using a cubic bezier function and UDIM2 data type to specify size, where only scale is modulated and pixel dimensions are ignored. 
+-- To prevent excessive jiggling, the global depth of the jiggle is specified by the number of permitted iterations and the coroutines are prompted to exit early with a bool
+-- The number of iterations are considered for all GUI elements combined.
+
+function CubicBezier(t, p0, p1, p2, p3)
+	local part1 = UDim2.new((1 - t)^3 * p0.X.Scale, 0, (1 - t)^3 * p0.Y.Scale, 0)
+	local part2 = UDim2.new(3*(1 - t)^2*t * p1.X.Scale, 0, 3*(1 - t)^2*t * p1.Y.Scale, 0)
+	local part3 = UDim2.new(3*(1 - t)*t^2 * p2.X.Scale, 0, 3*(1 - t)*t^2 * p2.Y.Scale, 0)
+	local part4 = UDim2.new(t^3 * p3.X.Scale, 0, t^3 * p3.Y.Scale, 0)
+	return part1 + part2 + part3 + part4
+end
+
+iterations = 0
+permitittedIterations = 12
+
+local function BounceIconButton(obj, maxTime, effectProportion)
+	
+	if iterations > permittedIterations then
+		obj.Size = defaultSize
+		obj:SetAttribute("bouncing", false)
+		return
+	end
+	
+	iterations += 1
+
+	--
+	local completedRatio = 0
+	local currentTime = 0
+	local p0 = obj.Size
+	local p1 = defaultSize  - UDim2.new(0.1 * defaultSize.X.Scale * effectProportion, 0, 0.05 * defaultSize.Y.Scale * effectProportion, 0)
+	local p2 = defaultSize  + UDim2.new(0.1 * defaultSize.X.Scale * effectProportion, 0, 0.05 * defaultSize.Y.Scale * effectProportion, 0)
+	local p3 = defaultSize
+	while completedRatio < 1  and (obj:GetAttribute("focused") == false or obj:GetAttribute("focused") == nil) do
+		completedRatio = currentTime / maxTime
+		obj.Size = CubicBezier(completedRatio, p0, p1, p2, p3)
+		currentTime += RunService.Heartbeat:Wait()
+	end
+	
+	iterations -= 1
+	
+	if effectProportion > 0.125 then
+		BounceIconButton(obj, 0.125, 0.5 * effectProportion)
+	elseif effectProportion <= 0.125 then
+		obj.Size = defaultSize
+		obj:SetAttribute("bouncing", false)
+	end
+
+end
+
+function BounceButton(button)
+	
+	button:SetAttribute("focused", false)
+
+	if button:GetAttribute("bouncing") == false or button:GetAttribute("bouncing") == nil then
+		button:SetAttribute("bouncing", true)
+		local cr = coroutine.create(BounceIconButton)
+		coroutine.resume(cr, button, 0.125, 1)
+	end
+
+end
