@@ -1,6 +1,7 @@
 -- This makes a GUI jiggle effect using a cubic bezier function and UDIM2 data type to specify size, where only scale is modulated and pixel dimensions are ignored. 
 -- To prevent excessive jiggling, the global depth of the jiggle is specified by the number of permitted iterations and the coroutines are prompted to exit early with a bool
 -- The number of iterations are considered for all GUI elements combined.
+-- If you want to reduce operations performed you can store the outputs from CubicBezier in an array after the first calculation, and reference the array for transformations.
 
 function CubicBezier(t, p0, p1, p2, p3)
 	local part1 = UDim2.new((1 - t)^3 * p0.X.Scale, 0, (1 - t)^3 * p0.Y.Scale, 0)
