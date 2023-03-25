@@ -1,0 +1,125 @@
+local part = script.Parent.Parent.PrimaryPart
+
+local followTween = nil
+
+local isCollected = false
+
+local TweenService = game:GetService("TweenService")
+
+local function onPartTouched(otherPart)
+	if part:GetAttribute("released") == false then
+		return
+	end
+	-- Get the other part's parent
+	local partParent = otherPart.Parent
+	-- Look for a humanoid in the parent
+	local humanoid = partParent:FindFirstChildWhichIsA("Humanoid")
+	if humanoid == nil  then
+		return
+	end
+	local player = game.Players:GetPlayerFromCharacter(humanoid.Parent)
+	if player == nil then
+		return
+	end
+	local id = "Player_".. player.UserId
+	if id ~= part:GetAttribute("playerOwner") then
+		return
+	end
+	local  GetLootEvent = game:GetService("ReplicatedStorage"):WaitForChild("GetLootEvent")
+	if humanoid and isCollected ~= true then
+		isCollected = true	
+		-- Add to Player's Currency
+		if player:WaitForChild("Currency") ~= nil then
+			player:WaitForChild("Currency"):WaitForChild("Gold").Value += part:GetAttribute("amount")
+		end
+		GetLootEvent:FireClient(player, "Gold", part:GetAttribute("amount"))
+		-- Display GUI
+		game.ReplicatedStorage.PetMine:FireClient(player, part.Parent, "Gold", part:GetAttribute("amount"))
+		-- Stop Following Player
+		if followTween ~= nil then
+			followTween:Cancel()
+		end
+		-- Make Coin Invisible and Disable Collisions
+		script.Parent.CanCollide = false
+		script.Parent.Transparency = 1
+		-- Destroy Coin
+		script.Parent.Parent:Destroy()
+	end
+end
+
+part.Touched:Connect(onPartTouched)
+
+local partspeed = 0.05 -- speed of the spin
+
+local Players = game:GetService('Players')
+local LocalPlayer = Players.LocalPlayer
+
+local beingCollected = false
+
+local function MoveTowardPlayer(character)
+	
+	while isCollected == false do
+		part.CFrame = part.CFrame * CFrame.Angles(partspeed,0,0)
+		local newTarget = character.HumanoidRootPart.Position
+		local dir = (newTarget - part.Position).Unit
+		local newPos = part.Position + dir * 0.1
+		local newCFrame = CFrame.new(newPos) * (part.CFrame - part.CFrame.Position)
+		script.Parent.Parent:SetPrimaryPartCFrame(newCFrame)
+		game["Run Service"].Heartbeat:Wait()
+	end
+	
+end
+
+local function DetectNearbyPlayer()
+	-- Check for Nearby Player
+	for _,Player in next, Players:GetChildren() do
+		local character = Player.Character
+		if character and character.Parent and Player ~= LocalPlayer then
+			local Magnitude = (script.Parent.Position - character.HumanoidRootPart.Position).magnitude
+			local id = "Player_".. Player.UserId
+			if Magnitude < 30 and beingCollected == false and id == part:GetAttribute("playerOwner") and part:GetAttribute("released") == true then
+				beingCollected = true
+				MoveTowardPlayer(character)
+			end
+		end
+	end
+end
+
+local countUp = 0
+local lastFlash = 0
+
+local function Flash()
+	if countUp - lastFlash > 0.5 then
+		if part.Transparency == 1 then
+			part.Transparency = 0
+			if countUp > 60 then
+				part:Destroy()
+			end
+		else
+			part.Transparency = 1 
+		end
+		lastFlash = countUp
+	end
+end
+
+while task.wait() do		
+	
+	if part:GetAttribute("playerOwner") ~= "" then
+		
+		part.CFrame = part.CFrame * CFrame.Angles(partspeed,0,0) -- the spin of the part
+		
+		DetectNearbyPlayer()
+
+		countUp += 0.025
+
+		if(countUp > 55) then
+			Flash()
+			wait(0.025)		
+		else
+			wait(0.025)
+		end	
+
+	end
+	
+	
+end
