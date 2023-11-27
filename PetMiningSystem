@@ -1,0 +1,471 @@
+--Services
+local Players = game:GetService("Players")
+local dataStoreService = game:GetService("DataStoreService")
+local dataStore = dataStoreService:GetDataStore("DataStore")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+--References to script parent and children
+local resource = script.Parent
+local healthBar = resource.Base.Health
+local healthText = healthBar.HealthText
+local cd = script.Parent.ClickDetector
+
+local petPositionsList = script.Parent.PetPositions:GetChildren() 
+
+-- Pet experience gained from resource, per hit
+local experienceFromResource = script.Parent:FindFirstChild("ExperienceGranted").Value
+
+-- Track Players With Pets Attacking
+local playersAttacking = { }
+
+local function UpdatePlayersAttackingEnemy(player)
+	table.insert(playersAttacking, player)
+end
+
+local function RemovePlayer(player)
+	local places = { }
+	for i = 1, #playersAttacking, 1 do
+		if playersAttacking[i] == player then
+			table.insert(places)
+		end
+	end
+	for i = 1, #places, 1 do
+		table.remove(playersAttacking, i)
+	end
+end
+
+local function has_value (tab, val)
+	for index, value in ipairs(tab) do
+		if value == val then
+			return true
+		end
+	end
+
+	return false
+end
+
+function tablelength(T)
+	local count = 0
+	for _ in pairs(T) do count = count + 1 end
+	return count
+end
+
+-- Occupy Space
+local function OccupySpaceEngagePet(player, i, pet)
+	
+	if has_value(playersAttacking, player.UserId)  then
+		if petPositionsList[i] ~= nil then
+			petPositionsList[i].spaceOccupied.Value = true
+			pet:FindFirstChild("Engaged").Value = true
+			pet:SetAttribute("PositionOccupied", i) 	
+			--
+			if pet:FindFirstChild("ObjectAttacking") == nil then
+				local objAtt = Instance.new("ObjectValue")
+				objAtt.Parent = pet
+				objAtt.Name = "ObjectAttacking"
+				objAtt.Value = script.Parent
+			else
+				pet:FindFirstChild("ObjectAttacking").Value = script.Parent
+			end
+			--
+		end
+	end
+
+end
+
+game.ReplicatedStorage.PetSystem.PetAttackingRemotes.PetEngagedData.OnServerEvent:Connect(OccupySpaceEngagePet)
+
+-- Cancel Pet Attack
+
+local StopAttackingButtonEvent = ReplicatedStorage.PetSystem:WaitForChild("PetAttackingRemotes"):WaitForChild("StopAttackingButton")
+
+-- Activated when the "Stop Attacking" button is pressed and the players pet is engaged
+
+local function CancelPetAttackServer(player)
+	
+	local folder = workspace.Player_Pets:FindFirstChild(player.Name):GetChildren()
+	
+	for i, pet in pairs(folder) do
+		if pet:FindFirstChild("Engaged").Value == true then
+			if pet:GetAttribute("PositionOccupied") ~= nil then
+				
+				if pet:FindFirstChild("ObjectAttacking").Value == script.Parent then
+					if pet:GetAttribute("PositionOccupied") ~= -1 then
+						pet:FindFirstChild("ObjectAttacking").Value = nil
+						petPositionsList[pet:GetAttribute("PositionOccupied")].spaceOccupied.Value = false
+						pet:FindFirstChild("Engaged").Value = false
+						pet:SetAttribute("PositionOccupied", -1) 	
+					end
+				end
+				
+			end				
+		end
+	end
+	
+	RemovePlayer(player)
+	
+	game.ReplicatedStorage.PetSystem.PetAttackingRemotes.StopPetAttacking:FireClient(player, petPositionsList, script.Parent, false)
+	
+	cd.MaxActivationDistance = 100
+end
+
+local function CancelAllPetAttackFromButtonServer(player)
+
+	local folder = workspace.Player_Pets:FindFirstChild(player.Name):GetChildren()
+
+	for i, pet in pairs(folder) do
+		if pet:FindFirstChild("Engaged").Value == true then
+			if pet:GetAttribute("PositionOccupied") ~= nil then
+				if pet:GetAttribute("PositionOccupied") ~= -1 then
+					pet:FindFirstChild("ObjectAttacking").Value = nil
+					petPositionsList[pet:GetAttribute("PositionOccupied")].spaceOccupied.Value = false
+					pet:FindFirstChild("Engaged").Value = false
+					pet:SetAttribute("PositionOccupied", -1) 	
+				end
+			end				
+		end
+	end
+	
+	RemovePlayer(player)
+
+	game.ReplicatedStorage.PetSystem.PetAttackingRemotes.StopPetAttacking:FireClient(player, petPositionsList, script.Parent, true)
+
+	cd.MaxActivationDistance = 100
+end
+
+StopAttackingButtonEvent.OnServerEvent:Connect(CancelAllPetAttackFromButtonServer) -- Triggerred from StarterGui > CancelPetAttack > LocalScript - line 17 
+
+--Resetting Resource Variables
+local function ResetResourceValuesOnceDestroyed()
+	
+	-- Resource related
+	script.Parent:FindFirstChild("CurrentHealth").Value = script.Parent:FindFirstChild("MaxHealth").Value
+	cd.MaxActivationDistance = 100 
+
+	-- Resetting the resource healthbar
+	script.Parent.Health.Green.Size = UDim2.new(1, 0, 1, 0)
+	healthText.Text = script.Parent:FindFirstChild("MaxHealth").Value
+	
+	for i, player in pairs(Players:GetPlayers()) do 
+		if has_value(playersAttacking, player.UserId) then
+			CancelPetAttackServer(player)
+		end
+	end
+	
+	playersAttacking = { }
+	
+end
+
+local dataStoreService = game:GetService("DataStoreService")
+local dataStore = dataStoreService:GetDataStore("DataStore")
+
+local levelColors = {}
+
+levelColors[0] = BrickColor.new(1)
+levelColors[50] = BrickColor.new(37)
+levelColors[100] = BrickColor.new(28)
+levelColors[150] = BrickColor.new(23)
+levelColors[200] = BrickColor.new(303)
+levelColors[250] = BrickColor.new(1010)
+levelColors[300] = BrickColor.new(1011)
+levelColors[350] = BrickColor.new(1026)
+levelColors[400] = BrickColor.new(1023)
+levelColors[450] = BrickColor.new(1015)
+levelColors[500] = BrickColor.new(1031)
+levelColors[550] = BrickColor.new(337)
+levelColors[600] = BrickColor.new(338)
+levelColors[650] = BrickColor.new(342)
+levelColors[700] = BrickColor.new(344)
+levelColors[750] = BrickColor.new(345)
+levelColors[800] = BrickColor.new(331)
+levelColors[850] = BrickColor.new(332)
+levelColors[900] = BrickColor.new(327)
+levelColors[950] = BrickColor.new(334)
+levelColors[999] = BrickColor.new(333)
+
+local function Colorize(level, levelLabel)
+	if level == 999 then
+		levelLabel.TextColor3 = levelColors[level].Color
+	else
+		levelLabel.TextColor3 = levelColors[level - (level % 50)].Color
+	end
+end
+
+local EF = (function(level) return 10 * 2^(level + 1) end)
+
+local function AddLevelAndExpPet(player, amount, currentPetExp, Level, petID, pet)
+
+	-- Players pet folder in the workspace i.e equipped pets
+	local playersPetFolder = workspace.Player_Pets:WaitForChild(player.Name):GetChildren()
+
+	-- Set Level of Pet on Player
+	local key = "Player_".. player.UserId
+
+	local newExp = currentPetExp+amount
+
+	-- Pet Experience Feedback (See FeedbackLS for Attached Functions)
+
+	if pet ~= nil then
+		game.ReplicatedStorage.PetExperience:FireClient(player, pet, amount)
+	end
+
+	-- If EXP is high for multiple levels this is useful (repeat as long as newExp is greater than required EXP.
+	while newExp >= EF(Level) and Level < 999 do 
+
+		-- Step 0: Calculate the new EXP.
+		newExp = newExp - EF(Level)
+
+		-- Step 1: Increase the level
+		Level = Level + 1
+
+		-- Make Sure Level Variable for the Pet Exists Under the Player in Players
+		if player:FindFirstChild(key .. "petlevel" .. petID) == nil then
+			local petLevel = Instance.new("NumberValue")
+			petLevel.Name = key .. "petlevel" .. petID
+			petLevel.Parent = player
+			petLevel.Value = 1 		
+		end
+
+		-- Set the Level Variable Value
+		player:WaitForChild(key .. "petlevel" .. petID).Value = Level
+
+		-- Trigger the "Level Up" feedback (see feedbackLS for connected function)
+		if pet ~= nil then
+			game.ReplicatedStorage.PetLevel:FireClient(player, pet)
+		end
+		--	
+	end
+	
+	if Level < 999 then
+		pet.Experience.Value = newExp
+	end
+	
+	pet.Level.Value = Level
+	pet.HitBox.BillBoardGui.LevelText.Text = "Level " .. Level
+	
+	Colorize(Level, pet.HitBox.BillBoardGui.LevelText)
+	
+end
+
+--Pet level and experience checks and calculations performed here
+local function PetExpAndLevel(player, petID, petFolder, pet)
+
+	local currentPetLevel = pet.Level.Value
+	local currentPetExp = 	pet.Experience.Value
+
+	-- This function will update the pets level and exp 
+	AddLevelAndExpPet(player, experienceFromResource, currentPetExp, currentPetLevel, petID, pet)
+
+end
+
+local function DetermineAttackMagnitude(player, petID, pet)
+
+	local petRarityDmgFactor = 1
+
+	if pet:FindFirstChild("RarityStat").Value == "Common" then
+		petRarityDmgFactor = 1
+	elseif pet:FindFirstChild("RarityStat").Value == "Rare" then
+		petRarityDmgFactor = 2
+	elseif pet:FindFirstChild("RarityStat").Value == "Legendary" then
+		petRarityDmgFactor = 3
+	end
+
+	local petLevelDmg = pet:FindFirstChild("Level").Value
+	
+	local totalDmg =  10 + petRarityDmgFactor * petLevelDmg
+	
+	if  player:FindFirstChild("treats").Value  > 0 then
+		totalDmg =  10 + petRarityDmgFactor * petLevelDmg * 2
+		player:FindFirstChild("treats").Value -= 1
+		game.ReplicatedStorage.PetMine:FireClient(player, pet, "Treats", -1)
+	end
+
+	return totalDmg
+
+end
+
+local function AttackMineResource(player, petID, pet, resource)
+	
+	if game.Players:FindFirstChild(player.Name) == nil then
+		CancelPetAttackServer(player)
+		return
+	end
+	
+	if resource ~= script.Parent then
+		return
+	end
+	
+	local totalDmg = math.min(script.Parent:FindFirstChild("CurrentHealth").Value, DetermineAttackMagnitude(player, petID, pet))
+	
+	if totalDmg > 0 and script.Parent:FindFirstChild("CurrentHealth").Value > 0 then
+
+		script.Parent:FindFirstChild("CurrentHealth").Value -= totalDmg
+
+		-- Adding the currency per hit value to the players currency
+		player:WaitForChild("Currency"):FindFirstChild(script.Parent:FindFirstChild("CurrencyType").Value).Value += totalDmg	
+
+		-- Players pet folder in the workspace i.e equipped pets
+		local playersPetFolder = workspace.Player_Pets:FindFirstChild(player.Name):GetChildren()
+
+		game.ReplicatedStorage.PetMine:FireClient(player, pet, script.Parent:FindFirstChild("CurrencyType").Value, totalDmg)
+
+		PetExpAndLevel(player, petID, playersPetFolder, pet)
+	end
+	
+	-- Updating the pet exp key
+	local key = "Player_".. player.UserId
+
+	if player:WaitForChild(key .. "petexp" .. petID) == player:WaitForChild(key .. "petexp" .. petID) then
+		if pet:FindFirstChild("Experience").Value ~= nil then	
+			player:WaitForChild(key .. "petexp" .. petID).Value = pet:FindFirstChild("Experience").Value	
+		end
+	end
+	
+end
+
+game.ReplicatedStorage.PetSystem.PetAttackingRemotes.TriggerAttackCalculations.OnServerEvent:Connect(AttackMineResource)
+
+-- This starts the pet attack function
+local function PetEngaged(player, character, folder) -- This function runs for pets that have a Walks value in the Pet model
+	-- Disables the Click Detector during attack
+	
+	for i, Player in pairs(Players:GetPlayers()) do
+		if Player == player then
+			game.ReplicatedStorage.PetSystem.PetAttackingRemotes.InitiatePetAttack:FireClient(Player, player, character, folder, petPositionsList, script.Parent, true) -- Fires to client via Pet Follower 2.0
+		else
+			game.ReplicatedStorage.PetSystem.PetAttackingRemotes.InitiatePetAttack:FireClient(Player, player, character, folder, petPositionsList, script.Parent, false) -- Fires to client via Pet Follower 2.0
+		end
+	end
+	
+end
+
+-- Triggers pet engaged once clicking to attack the gold resource 
+cd.MouseClick:Connect(function(playerWhoClicked)
+
+	local character = playerWhoClicked.Character
+
+	if character ~= nil then  --Send the players character and player pets folder to the positionPets function
+		if has_value(playersAttacking, playerWhoClicked.UserId) == false then
+			table.insert(playersAttacking, playerWhoClicked.UserId)
+		end
+		game.ReplicatedStorage.LoadPetsInInventory:FireClient(playerWhoClicked)
+		PetEngaged(playerWhoClicked, character, workspace.Player_Pets:FindFirstChild(playerWhoClicked.Name):GetChildren())
+	end
+	
+end)
+
+cd.CursorIcon = "rbxassetid://#########"
+
+cd.MouseHoverEnter:Connect(function(player) 
+
+	game.ReplicatedStorage.CursorControl:FireClient(player, "mining")
+
+end)
+
+cd.MouseHoverLeave:Connect(function(player) 
+
+	game.ReplicatedStorage.CursorControl:FireClient(player, "standard")
+
+end)
+
+local RunService = game:GetService("RunService")
+
+local healTime = 1
+
+RunService.Heartbeat:Connect(function() 
+	
+	-- Health bar depleting 
+	healthBar.Green.Size = UDim2.new(0.9*(script.Parent:FindFirstChild("CurrentHealth").Value/script.Parent:FindFirstChild("MaxHealth").Value), 0, 0.8, 0)
+	healthText.Text = tostring(script.Parent:FindFirstChild("CurrentHealth").Value)
+
+	if script.Parent:FindFirstChild("CurrentHealth").Value <= 0 then -- When resource is destroyed
+
+		healthBar.Green.Size = UDim2.new(0, 0, 0.8, 0)
+		healthText.Text = "0"
+
+		--Resetting resource variables - Sent to line 115 Pet_follower2.0			
+		ResetResourceValuesOnceDestroyed()
+
+	end
+	
+	wait(0.5)
+	
+end)
+
+RunService.Heartbeat:Connect(function() 
+	
+	if healTime <= 0 then
+		healTime = 1
+		script.Parent:FindFirstChild("CurrentHealth").Value = math.min(script.Parent:FindFirstChild("MaxHealth").Value, script.Parent:FindFirstChild("CurrentHealth").Value + script.Parent:FindFirstChild("RestoreRate").Value)
+	end
+
+	healTime -= RunService.Heartbeat:Wait()
+
+end)
+
+-- Configure Appearance
+
+local function ConfigureAppearance()
+	
+	if script.Parent:FindFirstChild("CurrencyType").Value == "Diamond" then
+		
+		script.Parent.PrimaryPart.Color = Color3.new(0, 1, 1)
+		script.Parent.PrimaryPart.Material = Enum.Material.Plastic
+		script.Parent.PrimaryPart.Transparency = 0
+		script.Parent.PrimaryPart.Reflectance  = 0.5
+		
+		for i = 1, #script.Parent.OtherParts:GetChildren(), 1 do
+			script.Parent.OtherParts:GetChildren()[i].Color = Color3.new(0, 1, 1)
+			script.Parent.OtherParts:GetChildren()[i].Material = Enum.Material.Plastic
+			script.Parent.OtherParts:GetChildren()[i].Transparency = 0
+			script.Parent.OtherParts:GetChildren()[i].Reflectance  = 0.5
+		end
+		
+	elseif script.Parent:FindFirstChild("CurrencyType").Value == "Rune" then
+		
+		script.Parent.PrimaryPart.Color = Color3.new(235/255, 168/255, 237/255)
+		script.Parent.PrimaryPart.Material = Enum.Material.Plastic
+		script.Parent.PrimaryPart.Transparency = 0
+		script.Parent.PrimaryPart.Reflectance  = 0.5
+		
+		for i = 1, #script.Parent.OtherParts:GetChildren(), 1 do
+			script.Parent.OtherParts:GetChildren()[i].Color = Color3.new(235/255, 168/255, 237/255)
+			script.Parent.OtherParts:GetChildren()[i].Material = Enum.Material.Plastic
+			script.Parent.OtherParts:GetChildren()[i].Transparency = 0
+			script.Parent.OtherParts:GetChildren()[i].Reflectance  = 0.5
+		end
+		
+	end
+	
+	if  script.Parent.PrimaryPart.MeshId == "rbxassetid://#########" then
+		script.Parent.PrimaryPart.Size = Vector3.new(12.504, 4.816, 9.618)
+		script.Parent.OtherParts:GetChildren()[1].Size = Vector3.new(3.865, 14.367, 5.077)
+		script.Parent.OtherParts:GetChildren()[2].Size = Vector3.new(5.089, 12.182, 4.468)
+		script.Parent.OtherParts:GetChildren()[3].Size = Vector3.new(6.121, 11.357, 4.498)
+		script.Parent.OtherParts:GetChildren()[4].Size = Vector3.new(5.969, 7.419, 6.107)
+		script.Parent.OtherParts:GetChildren()[5].Size = Vector3.new(6.132, 9.593, 4.763)
+	elseif script.Parent.PrimaryPart.MeshId == "rbxassetid://#########" then
+		script.Parent.PrimaryPart.Size = Vector3.new(11.171, 2.765, 14.004)
+		script.Parent.OtherParts:GetChildren()[1].Size = Vector3.new(16.182, 12.432, 13.918)
+	elseif script.Parent.PrimaryPart.MeshId == "rbxassetid://#########" then
+		script.Parent.PrimaryPart.Size = Vector3.new(20, 15.054, 14.243)
+	elseif script.Parent.PrimaryPart.MeshId == "rbxassetid://#########" then
+		script.Parent.PrimaryPart.Size = Vector3.new(5.108, 5.143, 5.441)
+		script.Parent.OtherParts:GetChildren()[1].Size = Vector3.new(2.762, 2.376, 3.985)
+		script.Parent.OtherParts:GetChildren()[2].Size = Vector3.new(3.921, 3.163, 4.612)
+		script.Parent.OtherParts:GetChildren()[3].Size = Vector3.new(4.846, 2.663, 4.394)
+		script.Parent.OtherParts:GetChildren()[4].Size = Vector3.new(2.818, 3.591, 2.796)
+		script.Parent.OtherParts:GetChildren()[5].Size = Vector3.new(2.818, 4.541, 5.406)
+		script.Parent.OtherParts:GetChildren()[6].Size = Vector3.new(3.368, 2.97, 3.536)
+		script.Parent.OtherParts:GetChildren()[7].Size = Vector3.new(3.633, 2.97, 3.954)
+		script.Parent.OtherParts:GetChildren()[8].Size = Vector3.new(2.182, 1.917, 1.537)
+		script.Parent.OtherParts:GetChildren()[9].Size = Vector3.new(1.663, 1.36, 1.81)
+		script.Parent.OtherParts:GetChildren()[10].Size = Vector3.new(1.583, 1.639, 1.81)
+		script.Parent.OtherParts:GetChildren()[11].Size = Vector3.new(2.034, 2.106, 2.325)
+	end
+	
+end
+
+ConfigureAppearance()
