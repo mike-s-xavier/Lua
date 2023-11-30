@@ -1,0 +1,209 @@
+local Players = game:GetService('Players')
+local LocalPlayer = Players.LocalPlayer
+
+local TweenService = game:GetService("TweenService")
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local nearbyPlayer = nil
+local coolDownTimer = 0
+
+local attackTimer = 2
+
+local attackIndex = 0
+
+local function MoveLaser(laser, character)
+	local info =  TweenInfo.new(
+		0.5,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.In
+	)
+	local goals = {
+		Position = character.HumanoidRootPart.Position
+	}
+	local Tween = TweenService:Create(laser,info,goals)
+	--Tween.Completed:Connect(ResetBeingCollected)
+	Tween:Play()
+	local shootSound = script:WaitForChild("Laser")
+	shootSound:Play()
+end
+
+local laserPrefab = ReplicatedStorage:WaitForChild("LaserAttackPrefab")
+
+local function DetectNearbyPlayer()
+	-- Check for Nearby Player
+	for _,Player in next, Players:GetChildren() do
+		local character = Player.Character
+		if character and character.Parent and Player ~= LocalPlayer then
+			local Magnitude = (script.Parent.PrimaryPart.Position - character.HumanoidRootPart.Position).magnitude
+			if Magnitude < 100 then
+				nearbyPlayer = Player
+				if attackTimer <= 0 then
+					attackTimer = 2
+					if attackIndex == 2 then
+						local newLaser = laserPrefab:Clone()
+						newLaser.Parent = workspace		
+						newLaser.Position = script.Parent.PrimaryPart.Position
+						MoveLaser(newLaser, character)	
+						wait(0.5)
+						newLaser = laserPrefab:Clone()
+						newLaser.Parent = workspace		
+						newLaser.Position = script.Parent.PrimaryPart.Position
+						MoveLaser(newLaser, character)	
+						wait(0.5)
+						newLaser = laserPrefab:Clone()
+						newLaser.Parent = workspace		
+						newLaser.Position = script.Parent.PrimaryPart.Position
+						MoveLaser(newLaser, character)	
+					elseif attackIndex == 1 then						
+						local newLaser = laserPrefab:Clone()
+						newLaser.Parent = workspace		
+						newLaser.Position = script.Parent.PrimaryPart.Position
+						MoveLaser(newLaser, character)	
+						wait(0.5)
+						newLaser = laserPrefab:Clone()
+						newLaser.Parent = workspace		
+						newLaser.Position = script.Parent.PrimaryPart.Position
+						MoveLaser(newLaser, character)							
+					else
+						local newLaser = laserPrefab:Clone()
+						newLaser.Parent = workspace		
+						newLaser.Position = script.Parent.PrimaryPart.Position
+						MoveLaser(newLaser, character)	
+					end
+					attackIndex += 1
+					if attackIndex > 2 then
+						attackIndex = 0
+					end
+				end
+				break						
+			else
+				nearbyPlayer = nil
+			end
+		end
+	end
+end
+
+local function RotatePart(part, otherPart, hasCharacter)
+	if hasCharacter == true then
+		if otherPart.Character == nil then
+			return
+		end
+		local character = otherPart.Character
+		local chrPos = character.HumanoidRootPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	else
+		local chrPos = otherPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	end
+end
+
+local function MoveTowardPlayer(player)
+	if player.character == nil then
+		return
+	end
+	local character = player.Character
+	if  (character.HumanoidRootPart.Position - script.Parent.PrimaryPart.Position).Magnitude < 10 then
+		return
+	end
+	local pos =  script.Parent.PrimaryPart.Position + 4 * (character.HumanoidRootPart.Position - script.Parent.PrimaryPart.Position).Unit
+	local pos = Vector3.new(pos.X, script.Parent.PrimaryPart.Position.Y, pos.Z)
+	
+	local newCF = CFrame.new(pos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position)
+	
+	local info =  TweenInfo.new(
+		0.5,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.In
+	)
+	local goals = {
+		CFrame = newCF
+	}
+	local Tween = TweenService:Create(script.Parent.PrimaryPart,info,goals)
+	Tween:Play()
+end
+
+local isLowered = true
+local lowerRaiseTimer = 0
+
+local isChangingHeight = false
+
+local jetPack = script.Parent.Head.Jet_Pack
+local fireOne = jetPack.OtherParts.JetBoosterLeft.Fire
+local fireTwo = jetPack.OtherParts.JetBoosterRight.Fire
+local smokeOne = jetPack.OtherParts.JetBoosterLeft.Smoke
+local smokeTwo = jetPack.OtherParts.JetBoosterRight.Smoke
+
+local function LowerRaise(lowerRaise)
+	local pos =  script.Parent.PrimaryPart.Position
+	if lowerRaise == "Lower" then
+		script.Parent.Head.Thrusting:Stop()
+		fireOne.Enabled = false
+		fireTwo.Enabled = false
+		smokeOne.Enabled = false
+		smokeTwo.Enabled = false
+		pos = Vector3.new(pos.X, script.Parent:GetAttribute("startY") + 5, pos.Z)
+	elseif lowerRaise == "Raise" then
+		fireOne.Enabled = true
+		fireTwo.Enabled = true
+		smokeOne.Enabled = true
+		smokeTwo.Enabled = true
+		script.Parent.Head.Thrusting:Play()
+		pos = Vector3.new(pos.X, script.Parent:GetAttribute("startY") + 20, pos.Z)
+	end
+	
+	local newCF = CFrame.new(pos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position)
+	
+	local info =  TweenInfo.new(
+		2,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.In
+	)
+	local goals = {
+		CFrame = newCF
+	}
+	local Tween = TweenService:Create(script.Parent.PrimaryPart,info,goals)
+	Tween:Play()
+	wait(2.1)
+	isChangingHeight = false
+end
+
+while task.wait() do
+	
+	DetectNearbyPlayer()
+	
+	if nearbyPlayer ~= nil then
+		attackTimer -= 0.025
+		lowerRaiseTimer -= 0.025
+		
+		if lowerRaiseTimer <= 0 then
+			isChangingHeight = true
+			lowerRaiseTimer = 10
+			if isLowered == false then
+				isLowered = true
+				LowerRaise("Lower")
+			elseif isLowered == true then
+				isLowered = false
+				LowerRaise("Raise")
+			end
+		end
+		
+		if coolDownTimer > 0 then
+			coolDownTimer -= 0.025
+		else
+			if nearbyPlayer ~= nil and isChangingHeight == false then
+				coolDownTimer = 0.25
+				RotatePart(script.Parent.PrimaryPart, nearbyPlayer, true)
+				MoveTowardPlayer(nearbyPlayer)
+			end
+		end
+		
+	end
+	
+	wait(0.025)
+
+end
