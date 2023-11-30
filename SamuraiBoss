@@ -1,0 +1,199 @@
+local Players = game:GetService('Players')
+local LocalPlayer = Players.LocalPlayer
+
+local TweenService = game:GetService("TweenService")
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local RunService = game:GetService("RunService")
+
+local nearbyPlayer = nil
+local coolDownTimer = 3
+
+local function DetectNearbyPlayer()
+	-- Check for Nearby Player
+	for _,Player in next, Players:GetChildren() do
+		local character = Player.Character
+		if character and character.Parent and Player ~= LocalPlayer then
+			local Magnitude = (script.Parent.PrimaryPart.Position - character.HumanoidRootPart.Position).magnitude
+			if Magnitude < 100 then
+				nearbyPlayer = Player		
+				break						
+			else
+				nearbyPlayer = nil
+			end
+		end
+	end
+end
+
+-- Rotate 
+
+local function RotatePart(part, otherPart, hasCharacter)
+	if hasCharacter == true then
+		if otherPart.Character == nil then
+			return
+		end
+		local character = otherPart.Character
+		local chrPos = character.HumanoidRootPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	else
+		local chrPos = otherPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	end
+end
+
+-- Dash to Location
+
+local dashIndex = 0
+
+local originPosition = script.Parent.PrimaryPart.Position
+
+local function Dash()
+	local goalPosition = nil	
+	if dashIndex == 0 then
+		goalPosition = originPosition + Vector3.new(20, 0, 0)
+		dashIndex += 1
+	elseif dashIndex == 1 then
+		goalPosition = originPosition + Vector3.new(20, 0, 20)
+		dashIndex += 1
+	elseif dashIndex == 2 then
+		goalPosition = originPosition + Vector3.new(0, 0, 20)
+		dashIndex += 1
+	elseif dashIndex == 3 then		
+		goalPosition = originPosition + Vector3.new(0, 0, 0)
+		dashIndex = 0
+	end
+	
+	local currentPos = script.Parent.PrimaryPart.Position
+	
+	local dir = (goalPosition - currentPos).Unit
+	local magnitude = (currentPos - goalPosition).Magnitude
+	
+	local timeElapsed = 0
+	local duration = 0.1
+	
+	script.Parent:WaitForChild("Dash"):Play()
+	
+	local aiGen = 0
+	
+	while timeElapsed < duration do
+		local ratio = timeElapsed/duration
+		local newPos = currentPos + ratio * dir * magnitude
+		local newCf = CFrame.new(newPos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position)
+		script.Parent:SetPrimaryPartCFrame(newCf)
+		if aiGen < 3 and timeElapsed > aiGen * (duration / 3) then
+			local afterImage = ReplicatedStorage:WaitForChild("Afterimage"):Clone()
+			afterImage.Parent = script.Parent.Parent
+			afterImage.Position = script.Parent.PrimaryPart.Position
+			aiGen += 1
+		end
+		timeElapsed += game["Run Service"].Heartbeat:Wait()
+	end
+	
+end
+
+local function Attack()
+	
+	script.Parent.Katana["Meshes/katana_Blade"].DamageOnContact.Disabled = false
+	
+	-- Zoom to Position Above Player
+	local character = nearbyPlayer.Character
+	local goalPosition =  character.HumanoidRootPart.Position + Vector3.new(0, 10, 0)
+	
+	local currentPos = script.Parent.PrimaryPart.Position
+
+	local dir = (goalPosition - currentPos).Unit
+	local magnitude = (currentPos - goalPosition).Magnitude
+	
+	local timeElapsed = 0
+	local duration = 0.2
+
+	script.Parent:WaitForChild("Dash"):Play()
+	
+	local aiGen = 0
+	
+	while timeElapsed < duration do
+		local ratio = timeElapsed/duration
+		local newPos = currentPos + ratio * dir * magnitude
+		local newCf = CFrame.new(newPos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position)
+		script.Parent:SetPrimaryPartCFrame(newCf)
+		if aiGen < 3 and timeElapsed > aiGen * (duration / 3) then
+			local afterImage = ReplicatedStorage:WaitForChild("Afterimage"):Clone()
+			afterImage.Parent = script.Parent.Parent
+			afterImage.Position = script.Parent.PrimaryPart.Position
+			aiGen += 1
+		end
+		timeElapsed += game["Run Service"].Heartbeat:Wait()
+	end
+
+	wait(0.2)
+	
+	-- Katana Slice Down
+	local goalPosition =   goalPosition - Vector3.new(0, 7, 0)
+	local currentPos = script.Parent.PrimaryPart.Position
+
+	local dir = (goalPosition - currentPos).Unit
+	local magnitude = (currentPos - goalPosition).Magnitude
+
+	local timeElapsed = 0
+	local duration = 0.2
+
+	script.Parent:WaitForChild("AttackDash"):Play()
+	
+	local aiGen = 0
+	
+	while timeElapsed < duration do
+		local ratio = timeElapsed/duration
+		local newPos = currentPos + ratio * dir * magnitude
+		local newCf = CFrame.new(newPos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position)
+		script.Parent:SetPrimaryPartCFrame(newCf)
+		if aiGen < 3 and timeElapsed > aiGen * (duration / 3) then
+			local afterImage = ReplicatedStorage:WaitForChild("Afterimage"):Clone()
+			afterImage.Parent = script.Parent.Parent
+			afterImage.Position = script.Parent.PrimaryPart.Position
+			aiGen += 1
+		end
+		timeElapsed += game["Run Service"].Heartbeat:Wait()
+	end
+	
+	wait(0.2)
+	
+	script.Parent.Katana["Meshes/katana_Blade"].DamageOnContact.Disabled = true
+
+end
+
+local function DashOrAttack(character)
+	local rando = math.random(0, 10)
+	if rando <= 8 then
+		Dash()
+	else
+		Attack()
+	end
+end
+
+local timeSinceLastCheck = 0
+
+RunService.Heartbeat:Connect(function(deltaTime)
+	
+	timeSinceLastCheck += deltaTime
+	if timeSinceLastCheck >= 0.25 then
+		timeSinceLastCheck = 0
+		DetectNearbyPlayer()
+	end
+	
+	if nearbyPlayer ~= nil then
+		
+		coolDownTimer -= deltaTime
+		RotatePart(script.Parent.PrimaryPart, nearbyPlayer, true)
+		if coolDownTimer <= 0 then
+			coolDownTimer = 3
+			local character = nearbyPlayer.Character
+			DashOrAttack(character)
+		end		
+	end
+
+end)
