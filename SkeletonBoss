@@ -1,0 +1,151 @@
+local Players = game:GetService('Players')
+local LocalPlayer = Players.LocalPlayer
+
+local TweenService = game:GetService("TweenService")
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local spike = ReplicatedStorage:WaitForChild("Spike")
+
+local nearbyPlayer = nil
+local coolDownTimer = 0
+
+local lowerRaiseTimer = 0
+
+local function MoveSpike(spike, character)
+	
+	local newPos = spike.Position + Vector3.new(0, 8, 0)
+	
+	local newCF = CFrame.new(newPos) * (spike.CFrame - spike.CFrame.Position)
+	
+	local info =  TweenInfo.new(
+		0.1,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.In
+	)
+	local goals = {
+		CFrame = newCF
+	}
+	local Tween = TweenService:Create(spike,info,goals)
+	Tween:Play()
+	local spikeSound = spike:WaitForChild("DamageOnContact"):WaitForChild("SpikeSound")
+	spikeSound:Play()
+end
+
+local laserPrefab = ReplicatedStorage:WaitForChild("LaserAttackPrefab")
+
+local function DetectNearbyPlayer()
+-- Check for Nearby Player
+	for _,Player in next, Players:GetChildren() do
+		local character = Player.Character
+		if character and character.Parent and Player ~= LocalPlayer then
+			local Magnitude = (script.Parent.PrimaryPart.Position - character.HumanoidRootPart.Position).magnitude
+			if Magnitude < 100 then
+				nearbyPlayer = Player
+				break						
+			else
+				nearbyPlayer = nil
+			end
+		end
+	end
+end
+
+local function RotatePart(part, otherPart, hasCharacter)
+	if hasCharacter == true then
+		if otherPart.Character == nil then
+			return
+		end
+		local character = otherPart.Character
+		local chrPos = character.HumanoidRootPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	else
+		local chrPos = otherPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	end
+end
+
+local originalPos = script.Parent.PrimaryPart.Position
+
+local function LowerRaise(lowerRaise)
+	local moveTime = 0
+	local pos =  script.Parent.PrimaryPart.Position
+	if lowerRaise == "Lower" then
+		pos = Vector3.new(pos.X, pos.Y - 20, pos.Z)
+		moveTime = 0.1
+	elseif lowerRaise == "Raise" then
+		pos = Vector3.new(pos.X, pos.Y + 20, pos.Z)
+		moveTime = 2
+	end
+	
+	local newCF = CFrame.new(pos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position) 
+	
+	local info =  TweenInfo.new(
+		moveTime,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.In
+	)
+	local goals = {
+		CFrame = newCF 
+	}
+	local Tween = TweenService:Create(script.Parent.PrimaryPart,info,goals)
+	Tween:Play()
+	wait(moveTime + 0.1)
+	if lowerRaise == "Lower" and nearbyPlayer ~= nil then
+		script:WaitForChild("Slam"):Play()
+		local character = nearbyPlayer.Character
+		local direction = (character.HumanoidRootPart.Position - script.Parent.PrimaryPart.Position).Unit
+		local direction = Vector3.new(direction.X, 0, direction.Z)
+		for count = 1, 10, 1 do
+			local newSpike = spike:Clone()
+			newSpike.Parent = workspace		
+			newSpike.Position = originalPos + 8 * count * direction - Vector3.new(0, 15, 0)
+			newSpike:WaitForChild("DamageOnContact").Disabled = false
+			MoveSpike(newSpike, character)
+			wait(0.1)
+		end
+	end
+	wait(0.1)
+	isChangingHeight = false
+end
+
+local isLowered = true
+
+while task.wait() do
+	
+	DetectNearbyPlayer()
+
+	if nearbyPlayer ~= nil then
+		lowerRaiseTimer -= 0.025
+
+		if lowerRaiseTimer <= 0 then
+			isChangingHeight = true
+
+			if isLowered == false then
+				lowerRaiseTimer = 5
+				isLowered = true
+				LowerRaise("Lower")
+			elseif isLowered == true then
+				lowerRaiseTimer = 2.5
+				isLowered = false
+				LowerRaise("Raise")
+			end
+		end
+
+		if coolDownTimer > 0 then
+			coolDownTimer -= 0.025
+		else
+			if nearbyPlayer ~= nil and isChangingHeight == false then
+				coolDownTimer = 0.25
+				RotatePart(script.Parent.PrimaryPart, nearbyPlayer, true)
+			end
+		end
+
+	end
+
+	wait(0.025)
+
+end
