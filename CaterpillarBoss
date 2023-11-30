@@ -1,0 +1,143 @@
+local head = script.Parent.PrimaryPart
+local torsoOne = script.Parent:WaitForChild("Torso_01")
+local torsoTwo = script.Parent:WaitForChild("Torso_02")
+local torsoThree = script.Parent:WaitForChild("Torso_03")
+local torsoFour = script.Parent:WaitForChild("Torso_04")
+
+local headLastPosition = head.Position
+local torsoOneLastPosition = torsoOne.Position
+local torsoTwoLastPosition = torsoTwo.Position
+local torsoThreeLastPosition = torsoThree.Position
+
+script.Parent:SetAttribute("defaultY", headLastPosition.Y)
+
+local Players = game:GetService('Players')
+
+local TweenService = game:GetService("TweenService")
+
+local nearbyPlayer = nil
+local coolDownTimer = 0
+
+local function DetectNearbyPlayer()
+	-- Check for Nearby Player
+	for _,Player in next, Players:GetChildren() do
+		local character = Player.Character
+		if character and character.Parent then
+			local Magnitude = (script.Parent.PrimaryPart.Position - character.HumanoidRootPart.Position).magnitude
+			if Magnitude < 50 then
+				nearbyPlayer = Player
+				break						
+			else
+				nearbyPlayer = nil
+			end
+		end
+	end
+end
+
+local function RotatePart(part, otherPart, hasCharacter)
+	if hasCharacter == true then
+		if otherPart.Character == nil then
+			return
+		end
+		local character = otherPart.Character
+		local chrPos = character.HumanoidRootPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	else
+		local chrPos = otherPart.Position
+		local partPos = part.Position
+		local newCF = CFrame.lookAt(partPos, chrPos, Vector3.new(0, 1, 0))
+		part.CFrame = newCF
+	end
+end
+
+local function MoveTowardPlayer(player)
+	
+	headLastPosition = script.Parent.PrimaryPart.Position
+	if player.character == nil then
+		return
+	end
+	
+	local character = player.Character
+	local pos =  script.Parent.PrimaryPart.Position + 4 * (character.HumanoidRootPart.Position - script.Parent.PrimaryPart.Position).Unit
+	pos = Vector3.new(pos.x, script.Parent:GetAttribute("defaultY"), pos.z)
+	
+	local timeElapsed = 0
+	local duration = 1
+	
+	while timeElapsed <= duration do
+		local ratio = math.min(1, timeElapsed / duration)
+		local newPos = headLastPosition + ratio * (pos - headLastPosition).Unit * (pos - headLastPosition).Magnitude 
+		local newCF = CFrame.new(newPos) * (script.Parent.PrimaryPart.CFrame - script.Parent.PrimaryPart.CFrame.Position)
+		script.Parent.PrimaryPart.CFrame = newCF
+		timeElapsed += game["Run Service"].Heartbeat:Wait()
+	end
+	
+
+end
+
+local function FollowOther(part, toFollowLastPosition)
+	
+	local currentPos = part.Position
+	
+	local pos = toFollowLastPosition
+	pos = Vector3.new(pos.x, script.Parent:GetAttribute("defaultY"), pos.z)
+	
+	local timeElapsed = 0
+	local duration = 1
+
+	while timeElapsed <= duration do
+		local ratio = math.min(1, timeElapsed / duration)
+		local newPos = currentPos + ratio * (pos - currentPos).Unit * (pos - currentPos).Magnitude 
+		local newCF = CFrame.new(newPos) * (part.CFrame - part.CFrame.Position)
+		part.CFrame = newCF
+		timeElapsed += game["Run Service"].Heartbeat:Wait()
+	end
+	
+end
+
+
+local function MoveAllPieces()
+	wait(0.25)
+	torsoOneLastPosition = torsoOne.Position
+	RotatePart(torsoOne, head, false)
+	local cr = coroutine.create(FollowOther)
+	coroutine.resume(cr, torsoOne, headLastPosition)
+	wait(0.1)
+	torsoTwoLastPosition = torsoTwo.Position
+	RotatePart(torsoTwo, torsoOne, false)
+	cr = coroutine.create(FollowOther)
+	coroutine.resume(cr, torsoTwo, torsoOneLastPosition)
+	wait(0.1)
+	torsoThreeLastPosition = torsoThree.Position
+	RotatePart(torsoThree, torsoTwo, false)
+	cr = coroutine.create(FollowOther)
+	coroutine.resume(cr, torsoThree, torsoTwoLastPosition)
+	wait(0.1)
+	RotatePart(torsoFour, torsoThree, false)
+	cr = coroutine.create(FollowOther)
+	coroutine.resume(cr, torsoFour, torsoThreeLastPosition)
+	wait(0.45)
+end
+
+while task.wait() do
+
+	DetectNearbyPlayer()
+	
+	if coolDownTimer > 0 then
+		coolDownTimer -= 0.025
+	else
+		if nearbyPlayer ~= nil then
+			coolDownTimer = 0.25
+			RotatePart(head, nearbyPlayer, true)
+			script.Parent:WaitForChild("Slide"):Play()
+			local cr = coroutine.create(MoveTowardPlayer)
+			coroutine.resume(cr, nearbyPlayer)
+			MoveAllPieces()
+		end
+	end
+
+	wait(0.025)
+
+end
